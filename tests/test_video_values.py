@@ -149,7 +149,7 @@ def test_effective_profile_and_reconnect_guard(device):
         guard()
 
 
-async def test_extra_values_require_fresh_matching_readback(device, monkeypatch):
+async def test_extra_values_require_fresh_matching_readback(device, monkeypatch, virtual_clock):
     # Exercise the real refresh implementation; stale optimistic state is insufficient.
     monkeypatch.setattr(device, "refresh_state", GoveeBLECoordinator.refresh_state.__get__(device))
 

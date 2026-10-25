@@ -52,7 +52,7 @@ def test_static_reply_is_accepted_and_temperature_is_parsed(kelvin):
 
 
 @pytest.mark.parametrize("kelvin", [0, 4000, 6500, 3123, 4100])
-async def test_static_reply_completes_setup_refresh(connected, kelvin):
+async def test_static_reply_completes_setup_refresh(connected, virtual_clock, kelvin):
     c = connected("H617A")
     client = c._client
     replies = {
@@ -115,7 +115,9 @@ def scalar_model(monkeypatch):
 
 
 @pytest.mark.parametrize("writable", [False, True])
-async def test_white_balance_read_is_independent_of_write_support(connected, scalar_model, monkeypatch, writable):
+async def test_white_balance_read_is_independent_of_write_support(
+    connected, scalar_model, monkeypatch, virtual_clock, writable
+):
     monkeypatch.setitem(MODEL_PROFILES, "H9903", replace(scalar_model, supports_white_balance=writable))
     c = connected("H9903")
     query = frame("aaa906")
@@ -176,7 +178,7 @@ def test_read_only_white_balance_preserves_firmware_gate(camera_device, qualifie
     assert (white_balance_readback_state(c.profile, c) == "supported") is (c.model == "H6099" or qualified)
 
 
-async def test_white_balance_refresh_requires_fresh_register(connected, scalar_model):
+async def test_white_balance_refresh_requires_fresh_register(connected, scalar_model, virtual_clock):
     c = connected("H9903")
     c._notify_callback(None, bytearray(frame("aaa9060132")))
     assert not await c.refresh_state(refresh_display_settings=frozenset({"white_balance"}), timeout=0.01)

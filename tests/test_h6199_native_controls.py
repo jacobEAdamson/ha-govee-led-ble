@@ -107,7 +107,7 @@ async def test_diy_static_and_camera_observation_preserve_light(coordinator):
 
 @pytest.mark.parametrize("control,opcode", [("strip_direction", "30"), ("camera_position", "31"), ("gradient", "a3")])
 @pytest.mark.parametrize("reply", ["fresh", "missing", "wrong", "ack_only"])
-async def test_native_write_requires_fresh_matching_readback(coordinator, control, opcode, reply):
+async def test_native_write_requires_fresh_matching_readback(coordinator, virtual_clock, control, opcode, reply):
     c = coordinator
     for key in H6199_NATIVE_CONTROLS[:-1]:
         setattr(c, key, 1)
@@ -141,7 +141,7 @@ async def test_native_write_requires_fresh_matching_readback(coordinator, contro
     c._client.disconnect.assert_not_awaited()
 
 
-async def test_query_timeout_and_revision_change_fail_closed(coordinator):
+async def test_query_timeout_and_revision_change_fail_closed(coordinator, virtual_clock):
     c = coordinator
 
     async def hang(_uuid, packet, **kwargs):
@@ -200,7 +200,9 @@ async def test_native_entity_to_generated_wire_and_fresh_notification(coordinato
 
 
 @pytest.mark.parametrize("connection_mode", ["release", "hold"])
-async def test_optional_camera_silence_does_not_fail_basic_refresh(coordinator, monkeypatch, connection_mode):
+async def test_optional_camera_silence_does_not_fail_basic_refresh(
+    coordinator, monkeypatch, virtual_clock, connection_mode
+):
     c = coordinator
     c.connection_mode = connection_mode
     c.camera_status = "healthy"

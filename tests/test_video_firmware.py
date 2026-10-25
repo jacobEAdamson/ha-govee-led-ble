@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from aiotools import VirtualClock
 from homeassistant.core import HomeAssistant
 
 from custom_components.ha_govee_led_ble.const import MODEL_PROFILES, ReadDomain, VideoFirmwareCondition
@@ -454,7 +455,9 @@ async def test_synthetic_deployment_uses_real_ble_parser_and_writer(
     assert build_relative_brightness(10, 20, 30, 40, "H7000", 50, 60) in writes
 
 
-async def test_display_refresh_cannot_reuse_stale_sibling_fields(hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch):
+async def test_display_refresh_cannot_reuse_stale_sibling_fields(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch, virtual_clock: VirtualClock
+):
     from custom_components.ha_govee_led_ble.transport import xor_checksum
 
     coordinator = GoveeBLECoordinator(hass, "11:22:33:44:55:66", "H6199", configuration_url="test")

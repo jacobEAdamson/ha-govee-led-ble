@@ -543,7 +543,7 @@ def _static_scene_reply():
 @pytest.mark.parametrize("method", ["refresh", "observe"])
 @pytest.mark.parametrize("kelvin", [None, 4200])
 @pytest.mark.parametrize("return_static", [False, True])
-async def test_static_verification_rejects_newer_mode(static_coordinator, method, kelvin, return_static):
+async def test_static_verification_rejects_newer_mode(static_coordinator, virtual_clock, method, kelvin, return_static):
     coord = static_coordinator
     field = "rgb_color" if kelvin is None else "color_temp_kelvin"
     value = (1, 2, 3) if kelvin is None else kelvin
@@ -751,7 +751,7 @@ def test_static_direct_notification_provenance_and_projection(static_coordinator
 
 
 @pytest.mark.parametrize("kelvin", [None, 4200])
-async def test_static_verification_needs_fresh_accepted_fields(static_coordinator, kelvin):
+async def test_static_verification_needs_fresh_accepted_fields(static_coordinator, virtual_clock, kelvin):
     coord = static_coordinator
     rgb = (1, 2, 3) if kelvin is None else None
     field = "rgb_color" if rgb is not None else "color_temp_kelvin"
@@ -914,7 +914,9 @@ async def test_static_verification_uses_actual_colour_query(static_coordinator):
 
 @pytest.mark.parametrize("method", ["refresh", "observe"])
 @pytest.mark.parametrize("segment_rgb", [(1, 2, 3), (4, 5, 6)])
-async def test_direct_rgb_verification_rejects_segment_only_evidence(static_coordinator, method, segment_rgb):
+async def test_direct_rgb_verification_rejects_segment_only_evidence(
+    static_coordinator, virtual_clock, method, segment_rgb
+):
     coord = static_coordinator
     coord.install_static_color(rgb=(1, 2, 3))
 
@@ -1404,7 +1406,9 @@ def test_h6199_segment_pages_preserve_opaque_tail(group: int) -> None:
         ),
     ],
 )
-async def test_four_slot_profile_observes_every_declared_domain(hass, monkeypatch, schema, class_name, read_domains):
+async def test_four_slot_profile_observes_every_declared_domain(
+    hass, monkeypatch, virtual_clock, schema, class_name, read_domains
+):
     root = _generated(schema, class_name)
     first = bytes.fromhex("aaa50164e5444464ffae5464ffae5464cf2e2e24")
     final = bytes.fromhex("aaa50464dc3b3b64e54444000000000000000032")

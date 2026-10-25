@@ -4,6 +4,7 @@ from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from aiotools import VirtualClock
 from homeassistant.core import HomeAssistant
 
 from custom_components.ha_govee_led_ble.const import MODEL_PROFILES, ModelProfile, ReadDomain
@@ -62,7 +63,7 @@ def reply(command: bytes) -> bytearray:
 
 
 async def test_alternate_roundtrip_writer_parser_observation_and_recovery(
-    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch, virtual_clock: VirtualClock
 ) -> None:
     profile = alternate(monkeypatch)
     content = VideoProfile(

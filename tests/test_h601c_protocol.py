@@ -184,7 +184,7 @@ def device(hass, monkeypatch):
     return device
 
 
-async def test_real_coordinator_queries_static_state_and_fresh_verification(device):
+async def test_real_coordinator_queries_static_state_and_fresh_verification(device, virtual_clock):
     replies = {
         build_power_query(profile=PROFILE): "aa0101",
         build_brightness_query(profile=PROFILE): "aa0432",

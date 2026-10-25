@@ -164,7 +164,7 @@ async def test_h601c_rgb_write_does_not_wait_for_status_readback(hass, monkeypat
 
 
 @pytest.mark.parametrize("model", ["H60A1", "H60A6"])
-async def test_late_identity_and_pact_revalidate_prepared_segment_write(hass, monkeypatch, model):
+async def test_late_identity_and_pact_revalidate_prepared_segment_write(hass, monkeypatch, virtual_clock, model):
     c = GoveeBLECoordinator(hass, "11:22:33:44:55:66", model, configuration_url=None)
     c.config_entry = MagicMock(entry_id="test-entry")
     assert not c.profile.supports_segments

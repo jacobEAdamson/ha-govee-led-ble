@@ -365,7 +365,9 @@ def test_unused_slots_opaque_black_records_real_and_bad_frames_rejected(model):
 
 
 @pytest.mark.parametrize("model", ["H60A1", "H60A6"])
-async def test_coordinator_real_pages_panel_brightness_and_no_false_verification(hass, monkeypatch, model):
+async def test_coordinator_real_pages_panel_brightness_and_no_false_verification(
+    hass, monkeypatch, virtual_clock, model
+):
     c = GoveeBLECoordinator(hass, "11:22:33:44:55:66", model, configuration_url=None)
     c.hw_version, c.fw_version = "1.04.03", "1.02.20" if model == "H60A1" else "1.00.41"
     c._resolve_device_profile()
@@ -451,7 +453,7 @@ async def test_coordinator_real_pages_panel_brightness_and_no_false_verification
 
 
 @pytest.mark.parametrize("model", ["H60A1", "H60A6"])
-async def test_missing_final_page_cannot_promote_partial_segment_state(hass, monkeypatch, model):
+async def test_missing_final_page_cannot_promote_partial_segment_state(hass, monkeypatch, virtual_clock, model):
     c = GoveeBLECoordinator(hass, "11:22:33:44:55:66", model, configuration_url=None)
     c.hw_version, c.fw_version = "1.04.03", "1.02.20" if model == "H60A1" else "1.00.41"
     c._resolve_device_profile()

@@ -244,7 +244,7 @@ async def test_services_preflight_freshness_and_no_optimistic_state(hass, mock_c
 
 
 @pytest.mark.parametrize("replies", [("aa3004", "aa3201"), ("aa3004",), ("aa3202",), ()])
-async def test_concrete_controls_optional_refresh_and_independent_freshness(hass, monkeypatch, replies):
+async def test_concrete_controls_optional_refresh_and_independent_freshness(hass, monkeypatch, virtual_clock, replies):
     c = GoveeBLECoordinator(hass, "11:22:33:44:55:66", "H6099", configuration_url="test")
     client = SimpleNamespace(is_connected=True, write_gatt_char=AsyncMock(), disconnect=AsyncMock())
     c._client = client
@@ -285,7 +285,7 @@ async def test_concrete_controls_optional_refresh_and_independent_freshness(hass
 
 
 @pytest.mark.parametrize("reply", [True, False])
-async def test_concrete_direction_write_requires_fresh_readback(hass, monkeypatch, reply):
+async def test_concrete_direction_write_requires_fresh_readback(hass, monkeypatch, virtual_clock, reply):
     c = GoveeBLECoordinator(hass, "11:22:33:44:55:66", "H6099", configuration_url="test")
     c.installation_direction = 4
     client = SimpleNamespace(is_connected=True, write_gatt_char=AsyncMock(), disconnect=AsyncMock())
@@ -321,7 +321,7 @@ async def test_concrete_direction_write_requires_fresh_readback(hass, monkeypatc
     assert c.control_write_attempts == 1 and not c.is_on and c.video_mode == "off"
 
 
-async def test_queued_read_does_not_claim_external_replies(hass, monkeypatch):
+async def test_queued_read_does_not_claim_external_replies(hass, monkeypatch, virtual_clock):
     c = GoveeBLECoordinator(hass, "11:22:33:44:55:66", "H6099", configuration_url="test")
     client = SimpleNamespace(is_connected=True, write_gatt_char=AsyncMock(), disconnect=AsyncMock())
     c._client = client

@@ -45,7 +45,7 @@ def device(hass, monkeypatch):
 
 @pytest.mark.parametrize("query", ["segment", "white_balance", "native", "power"])
 @pytest.mark.parametrize("failure", ["bleak", "disconnect", "value", "timeout"])
-async def test_query_errors_respect_required_domains(device, query, failure):
+async def test_query_errors_respect_required_domains(device, virtual_clock, query, failure):
     c, client = device
     bad = {
         "segment": build_segment_query(1, c.model),
@@ -102,7 +102,7 @@ async def test_targeted_queries_do_not_send_native_registers(device, target):
 
 
 @pytest.mark.parametrize("disconnect", [False, True])
-async def test_setup_collects_delayed_optional_registers(device, disconnect):
+async def test_setup_collects_delayed_optional_registers(device, virtual_clock, disconnect):
     c, client = device
     timers = []
     replies = {
@@ -189,7 +189,7 @@ async def test_only_successfully_sent_fields_are_collected(device):
     assert baselines == {}
 
 
-async def test_h6099_targeted_queries_and_optional_collection(hass, monkeypatch):
+async def test_h6099_targeted_queries_and_optional_collection(hass, monkeypatch, virtual_clock):
     c = GoveeBLECoordinator(hass, "11:22:33:44:55:66", "H6099", configuration_url=None)
     client = MagicMock(is_connected=True, write_gatt_char=AsyncMock())
     c._client = client

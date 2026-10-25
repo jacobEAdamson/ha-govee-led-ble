@@ -350,7 +350,9 @@ async def test_old_poll_gates_control_until_all_pages_arrive(device, monkeypatch
 
 
 @pytest.mark.parametrize("ending", ["timeout", "cancel", "write_error"])
-async def test_abandoned_batch_requires_new_connection_even_after_late_pages(device, monkeypatch, ending):
+async def test_abandoned_batch_requires_new_connection_even_after_late_pages(
+    device, monkeypatch, virtual_clock, ending
+):
     c, client, receive = device
     old_pages = pages([50] * 15)
     sent = asyncio.Event()
@@ -406,7 +408,7 @@ async def test_abandoned_batch_requires_new_connection_even_after_late_pages(dev
     assert c._field_revisions["segment_colors"] == revision
 
 
-async def test_optional_segment_timeout_keeps_basic_poll_but_not_connection_reusable(device):
+async def test_optional_segment_timeout_keeps_basic_poll_but_not_connection_reusable(device, virtual_clock):
     c, client, receive = device
     c._present = True
     replies = {
@@ -434,7 +436,9 @@ async def test_optional_segment_timeout_keeps_basic_poll_but_not_connection_reus
 
 @pytest.mark.parametrize("producer", ["segments", "refresh", "observe", "background"])
 @pytest.mark.parametrize("phase", ["collection", "write", "healthy"])
-async def test_one_deadline_rejects_late_pages_even_before_timeout_waiter(device, monkeypatch, producer, phase):
+async def test_one_deadline_rejects_late_pages_even_before_timeout_waiter(
+    device, monkeypatch, virtual_clock, producer, phase
+):
     c, client, receive = device
     start = asyncio.get_running_loop().time()
     clock = [start]
@@ -525,7 +529,7 @@ async def test_stalled_segment_query_write_is_bounded_and_releases_locks(device,
     assert not c._lock.locked() and not c._control_arbiter.locked()
 
 
-async def test_observation_does_not_restart_timeout_after_segment_collection(device, monkeypatch):
+async def test_observation_does_not_restart_timeout_after_segment_collection(device, monkeypatch, virtual_clock):
     c, client, receive = device
     start = asyncio.get_running_loop().time()
     clock = [start]
@@ -565,7 +569,7 @@ async def test_observation_does_not_restart_timeout_after_segment_collection(dev
 
 
 @pytest.mark.parametrize("producer", ["refresh", "observe"])
-async def test_transmission_time_is_subtracted_from_collection_budget(device, monkeypatch, producer):
+async def test_transmission_time_is_subtracted_from_collection_budget(device, monkeypatch, virtual_clock, producer):
     c, client, receive = device
     start = asyncio.get_running_loop().time()
     clock = [start]
@@ -607,7 +611,7 @@ async def test_transmission_time_is_subtracted_from_collection_budget(device, mo
 
 
 @pytest.mark.parametrize("change", ["disconnect", "subscription", "profile"])
-async def test_complete_pages_cannot_confirm_changed_connection_or_profile(device, change):
+async def test_complete_pages_cannot_confirm_changed_connection_or_profile(device, virtual_clock, change):
     c, client, receive = device
     sent = asyncio.Event()
 
@@ -633,7 +637,7 @@ async def test_complete_pages_cannot_confirm_changed_connection_or_profile(devic
 
 @pytest.mark.parametrize("device", ["H617A", "H7020"], indirect=True)
 @pytest.mark.parametrize("external_cancel", [False, True])
-async def test_plaintext_query_cancellation_bounds_stalled_disconnect(device, external_cancel):
+async def test_plaintext_query_cancellation_bounds_stalled_disconnect(virtual_clock, device, external_cancel):
     c, client, receive = device
     session = c._encryption = GoveeEncryptionSession()
     client.services = []

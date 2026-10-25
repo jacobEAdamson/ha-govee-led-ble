@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from aiotools import VirtualClock
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 
@@ -1169,6 +1170,7 @@ async def test_stale_in_progress_verification_finishes_but_cannot_publish(
 async def test_workshop_preview_verifies_evidenced_selector(
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
+    virtual_clock: VirtualClock,
     model: str,
     kind: str,
 ) -> None:
@@ -1719,7 +1721,7 @@ async def test_scene_preview_validation_errors(
 
 
 @pytest.mark.parametrize("fresh", [False, True])
-async def test_toggle_only_live_preview_uses_fresh_external_policy(hass, monkeypatch, fresh):
+async def test_toggle_only_live_preview_uses_fresh_external_policy(hass, monkeypatch, virtual_clock, fresh):
     from custom_components.ha_govee_led_ble.generated_protocol_adapter import build_blank_screen_query
     from custom_components.ha_govee_led_ble.video_applicability import video_identity_fields
     from tests.test_h6099 import frame

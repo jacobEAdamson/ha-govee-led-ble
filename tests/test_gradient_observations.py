@@ -37,7 +37,7 @@ def test_stale_mode_does_not_publish_gradient_but_accepted_static_does(hass):
 
 
 @pytest.mark.parametrize("direct", [None, 0, 1])
-async def test_gradient_write_requires_matching_direct_register_reply(hass, monkeypatch, direct):
+async def test_gradient_write_requires_matching_direct_register_reply(hass, monkeypatch, virtual_clock, direct):
     c = GoveeBLECoordinator(hass, "11:22:33:44:55:66", "H6199", configuration_url=None)
     set_qualified_identity(c)
     # A previous matching A3 reply must not qualify the next write.

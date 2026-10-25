@@ -102,7 +102,7 @@ def _packet(header: int, action: int, params: list[int]) -> bytes:
 
 @pytest.mark.parametrize(("poll", "reply_brightness"), [(False, True), (True, True), (False, False)])
 async def test_power_required_profile_collects_optional_brightness_before_release(
-    hass, monkeypatch, poll, reply_brightness
+    hass, monkeypatch, virtual_clock, poll, reply_brightness
 ):
     profile = ModelProfile(
         "Optional brightness fixture",
@@ -2709,7 +2709,7 @@ async def test_refresh_state_query_selection(coord):
         sq.assert_awaited_with(query_power=True, query_brightness=False, query_color_mode=True, deadline=ANY)
 
 
-async def test_h617e_legacy_scene_verifies_by_raw_selector_code(hass):
+async def test_h617e_legacy_scene_verifies_by_raw_selector_code(hass, virtual_clock):
     coordinator = GoveeBLECoordinator(
         hass,
         "33:44:55:66:77:89",
@@ -2737,7 +2737,7 @@ async def test_h617e_legacy_scene_verifies_by_raw_selector_code(hass):
     assert coordinator.unknown_scene_code == legacy.code
 
 
-async def test_refresh_all_can_require_only_the_setup_domains(coord):
+async def test_refresh_all_can_require_only_the_setup_domains(coord, virtual_clock):
     coord._client = client = _c()
 
     async def _reply(**_kwargs) -> bool:
@@ -2755,7 +2755,9 @@ async def test_refresh_all_can_require_only_the_setup_domains(coord):
         )
 
 
-async def test_refresh_without_colour_readback_requires_power_and_brightness_only(limited_readback_coord):
+async def test_refresh_without_colour_readback_requires_power_and_brightness_only(
+    limited_readback_coord, virtual_clock
+):
     limited_readback_coord._client = client = _c()
     limited_readback_coord.rgb_color = (12, 34, 56)
 
@@ -2802,7 +2804,7 @@ async def test_profile_without_colour_readback_rejects_colour_expectations(limit
     ensure.assert_not_awaited()
 
 
-async def test_h6076_refresh_all_uses_colour_mode_and_segment_readback(hass):
+async def test_h6076_refresh_all_uses_colour_mode_and_segment_readback(hass, virtual_clock):
     coordinator = GoveeBLECoordinator(
         hass,
         "33:44:55:66:77:88",
@@ -2831,7 +2833,7 @@ async def test_h6076_refresh_all_uses_colour_mode_and_segment_readback(hass):
     assert coordinator.static_gradual is True
 
 
-async def test_refresh_reply_timeout_starts_after_connection(coord):
+async def test_refresh_reply_timeout_starts_after_connection(coord, virtual_clock):
     client = _c(disconnect=AsyncMock())
 
     async def connect():
@@ -2904,7 +2906,7 @@ async def test_refresh_state_queries_each_display_domain(h6199):
         assert queries.await_args.kwargs["query_relative_brightness"] is True
 
 
-async def test_refresh_state_rejects_optimistic_value_without_fresh_reply(coord):
+async def test_refresh_state_rejects_optimistic_value_without_fresh_reply(coord, virtual_clock):
     coord.is_on = True
     coord._client = client = _c(disconnect=AsyncMock())
     with (
@@ -2917,7 +2919,7 @@ async def test_refresh_state_rejects_optimistic_value_without_fresh_reply(coord)
     disconnect.assert_awaited_once_with(client)
 
 
-async def test_refresh_state_ignored_stale_reply_does_not_confirm(coord):
+async def test_refresh_state_ignored_stale_reply_does_not_confirm(coord, virtual_clock):
     coord.music_mode = "rhythm"
     coord._client = client = _c()
     coord._expected_state["music_mode"] = ("rhythm", time.monotonic() + 60)
@@ -2938,7 +2940,7 @@ async def test_refresh_state_ignored_stale_reply_does_not_confirm(coord):
     disconnect.assert_not_awaited()
 
 
-async def test_refresh_state_requires_fresh_power_and_video_replies(coord):
+async def test_refresh_state_requires_fresh_power_and_video_replies(coord, virtual_clock):
     coord.is_on = True
     coord.video_mode = "game"
     coord._client = client = _c(disconnect=AsyncMock())
@@ -2956,7 +2958,7 @@ async def test_refresh_state_requires_fresh_power_and_video_replies(coord):
     disconnect.assert_awaited_once_with(client)
 
 
-async def test_refresh_state_rejects_wrong_video_parameters(coord):
+async def test_refresh_state_rejects_wrong_video_parameters(coord, virtual_clock):
     coord._client = client = _c()
 
     async def _wrong_video(**kwargs) -> bool:
@@ -2987,7 +2989,7 @@ async def test_refresh_state_rejects_wrong_video_parameters(coord):
     disconnect.assert_not_awaited()
 
 
-async def test_refresh_state_does_not_disconnect_replacement_client(coord):
+async def test_refresh_state_does_not_disconnect_replacement_client(coord, virtual_clock):
     original = _c(disconnect=AsyncMock())
     replacement = _c(disconnect=AsyncMock())
     coord._client = original
@@ -3761,7 +3763,7 @@ async def test_native_scene_power_state_waits_for_atomic_sequence(coord):
 
 
 @pytest.mark.parametrize("expectations", [{"effect": "glacier"}, {"scene_code": SCENES["glacier"].code}])
-async def test_preview_observation_stays_read_only_when_device_is_silent(coord, expectations):
+async def test_preview_observation_stays_read_only_when_device_is_silent(coord, virtual_clock, expectations):
     coord._client = MagicMock(is_connected=True)
     with (
         patch.object(coord, "_send_state_queries", new=AsyncMock(return_value=True)) as query,
@@ -3790,7 +3792,7 @@ async def test_preview_observation_stays_read_only_when_device_is_silent(coord, 
     assert not coord._control_lock.locked()
 
 
-async def test_preview_preflight_retries_one_failed_connection_path(coord):
+async def test_preview_preflight_retries_one_failed_connection_path(coord, virtual_clock):
     partial = _c(disconnect=AsyncMock())
     replacement = _c()
     attempts = 0
@@ -3813,7 +3815,7 @@ async def test_preview_preflight_retries_one_failed_connection_path(coord):
     assert not coord._control_arbiter.locked()
 
 
-async def test_preview_preflight_bounds_partial_client_cleanup(coord):
+async def test_preview_preflight_bounds_partial_client_cleanup(coord, virtual_clock):
     never_disconnected = asyncio.Event()
     partial = _c(disconnect=AsyncMock(side_effect=never_disconnected.wait))
 
@@ -3865,7 +3867,7 @@ async def test_preview_preflight_cancellation_finishes_detached_cleanup(coord):
     await disconnect_finished.wait()
 
 
-async def test_preview_preflight_timeout_includes_foreground_wait(coord):
+async def test_preview_preflight_timeout_includes_foreground_wait(coord, virtual_clock):
     foreground_started = asyncio.Event()
     release_foreground = asyncio.Event()
 
@@ -3904,7 +3906,9 @@ async def test_preview_preflight_timeout_includes_foreground_wait(coord):
     ],
 )
 @pytest.mark.parametrize("intent", [ControlIntent.PREVIEW, ControlIntent.APPLY])
-async def test_effect_observation_requires_fresh_selector_and_power(coord, selector, replies, expected, intent):
+async def test_effect_observation_requires_fresh_selector_and_power(
+    coord, virtual_clock, selector, replies, expected, intent
+):
     coord._client = MagicMock(is_connected=True)
     mode = proto.COLOR_MODE_DIY if selector == "diy_code" else proto.COLOR_MODE_SCENE
     coord._notify_callback(None, bytearray(proto.build_packet(0xAA, 0x01, [1])))

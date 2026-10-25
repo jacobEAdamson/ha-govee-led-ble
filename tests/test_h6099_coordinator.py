@@ -136,7 +136,7 @@ def test_display_replies_are_atomic_and_field_specific(device):
 
 @pytest.mark.parametrize("setting", ["black_border", "blank_screen"])
 @pytest.mark.parametrize("fresh", [False, True])
-async def test_refresh_and_observe_require_exact_reply(device, setting, fresh):
+async def test_refresh_and_observe_require_exact_reply(device, virtual_clock, setting, fresh):
     device.subordinate_21_version = "1.00.11"
     device._confirmed_identity_fields.add("subordinate_21_version")
     expected = (
@@ -686,7 +686,7 @@ async def test_ic_rediscovery_preserves_user_parameters_and_validates_new_bounds
 
 @pytest.mark.parametrize("route", ["native", "preview", "recovery"])
 @pytest.mark.parametrize("fresh", [False, True])
-async def test_toggle_reads_fresh_external_policy_before_writing(device, monkeypatch, route, fresh):
+async def test_toggle_reads_fresh_external_policy_before_writing(device, monkeypatch, virtual_clock, route, fresh):
     notify(device, "aaa90a0600020a007800")
     client = device._client
     device.subordinate_21_version = "1.00.11"
@@ -741,7 +741,7 @@ async def test_toggle_reads_fresh_external_policy_before_writing(device, monkeyp
 
 
 @pytest.mark.parametrize("change", ["filtered", "reconnect"])
-async def test_toggle_guard_rejects_filtered_reply_or_reconnect(device, monkeypatch, change):
+async def test_toggle_guard_rejects_filtered_reply_or_reconnect(device, monkeypatch, virtual_clock, change):
     device.subordinate_21_version = "1.00.11"
     device._confirmed_identity_fields.add("subordinate_21_version")
     client = device._client
@@ -778,7 +778,7 @@ async def test_toggle_guard_rejects_filtered_reply_or_reconnect(device, monkeypa
 
 @pytest.mark.parametrize("cached", [False, True])
 @pytest.mark.parametrize("fresh", [False, True])
-async def test_compiled_toggle_prepares_policy_before_any_control(device, monkeypatch, cached, fresh):
+async def test_compiled_toggle_prepares_policy_before_any_control(device, monkeypatch, virtual_clock, cached, fresh):
     device.subordinate_21_version = "1.00.11"
     device._confirmed_identity_fields.add("subordinate_21_version")
     if cached:

@@ -101,7 +101,7 @@ def physical(hass, monkeypatch, request):
 
 
 @pytest.mark.parametrize("physical", ["H7020"], indirect=True)
-async def test_ambiguous_bulb_readback_never_repaints_white_as_rgb_during_rollback(physical):
+async def test_ambiguous_bulb_readback_never_repaints_white_as_rgb_during_rollback(physical, virtual_clock):
     coordinator, state = physical
     state["colours"] = [(255, 213, 161)] + [(255, 0, 0)] * 14
     state["colour_modes"][0] = "white"
@@ -149,7 +149,9 @@ async def test_prior_off_cleanup_does_not_require_static_recovery(physical, monk
 
 @pytest.mark.parametrize("on", [True, False])
 @pytest.mark.parametrize("fault", [None, "brightness", "colour", "relative", "partial", "stale", "reordered", "mode"])
-async def test_failed_deployment_restores_fresh_mixed_layout_and_persists_truth(physical, monkeypatch, on, fault):
+async def test_failed_deployment_restores_fresh_mixed_layout_and_persists_truth(
+    physical, monkeypatch, virtual_clock, on, fault
+):
     coordinator, physical_state = physical
     physical_state["on"] = on
     original = {key: value.copy() if isinstance(value, list) else value for key, value in physical_state.items()}

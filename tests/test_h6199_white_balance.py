@@ -132,7 +132,7 @@ async def test_manual_authoring_and_preview_verification_include_flag(coordinato
     assert expectations["white_balance_flag"] == 1
 
 
-async def test_same_gain_wrong_flag_is_not_fresh_confirmation(coordinator, monkeypatch):
+async def test_same_gain_wrong_flag_is_not_fresh_confirmation(coordinator, monkeypatch, virtual_clock):
     client = MagicMock(is_connected=True)
     coordinator._client = client
     monkeypatch.setattr(coordinator, "_ensure_connected", AsyncMock(return_value=client))
