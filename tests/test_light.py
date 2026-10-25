@@ -286,8 +286,13 @@ async def test_h6076_exposes_scenes_and_legacy_music_before_firmware_identity(mo
     assert "Torch" not in light.effect_list
 
     mock_h6076_coordinator.is_on = True
+    mock_h6076_coordinator.async_set_segment_kelvin = AsyncMock()
     await light.async_turn_on(color_temp_kelvin=2000)
-    mock_h6076_coordinator.send_command.assert_awaited_once_with(build_color_temp(2700, "H6076"))
+    # AA05 never echoes Kelvin on this lamp, so the write is confirmed from its segment pages.
+    mock_h6076_coordinator.async_set_segment_kelvin.assert_awaited_once_with(
+        build_color_temp(2700, "H6076"), requested_kelvin=2000
+    )
+    mock_h6076_coordinator.send_command.assert_not_awaited()
 
 
 async def test_qualified_h6076_projects_its_twelve_music_effects(mock_h6076_coordinator):

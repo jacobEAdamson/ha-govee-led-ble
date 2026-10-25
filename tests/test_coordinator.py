@@ -2815,7 +2815,8 @@ async def test_h6076_refresh_all_uses_colour_mode_and_segment_readback(hass):
         assert kwargs["query_color_mode"] is True
         coordinator._notify_callback(None, bytearray(proto.build_packet(0xAA, 0x01, [0])))
         coordinator._notify_callback(None, bytearray(proto.build_packet(0xAA, 0x04, [40])))
-        coordinator._notify_callback(None, bytearray(proto.build_packet(0xAA, 0x05, [0x15, 0x01, 0x0A, 0x8C])))
+        # Firmware 1.04.05's static reply: gradual on, Kelvin never echoed.
+        coordinator._notify_callback(None, bytearray(proto.build_packet(0xAA, 0x05, [0x15, 0x01, 0x00, 0x00])))
         return True
 
     with (
@@ -2825,7 +2826,8 @@ async def test_h6076_refresh_all_uses_colour_mode_and_segment_readback(hass):
         assert await coordinator.refresh_state(refresh_all=True, timeout=0.02)
 
     assert coordinator.scene_name_set == frozenset(MODEL_SCENES["H6076"])
-    assert coordinator.color_temp_kelvin == 2700
+    assert coordinator.color_mode is ParsedMode.COLOUR
+    assert coordinator.color_temp_kelvin is None
     assert coordinator.static_gradual is True
 
 

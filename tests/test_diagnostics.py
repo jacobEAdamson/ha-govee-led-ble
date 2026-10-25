@@ -120,8 +120,8 @@ async def test_h6076_diagnostics_expose_basic_capability_boundary(mock_h6076_coo
     assert coord["color_temperature_range"] == {
         "minimum_kelvin": 2700,
         "maximum_kelvin": 6500,
-        "step_kelvin": 1,
-        "table_companion": False,
+        "step_kelvin": 100,
+        "table_companion": True,
     }
     assert coord["supports_color_mode_readback"] is True
     assert coord["supports_custom_effects"] is True

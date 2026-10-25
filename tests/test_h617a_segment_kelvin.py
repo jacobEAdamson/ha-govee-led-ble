@@ -326,7 +326,82 @@ async def test_issue_429_six_operations_settle_without_replaying_kelvin(
         assert c.color_temp_kelvin is None
 
 
-@pytest.mark.parametrize("model", ["H66A0", "H1A42", "H61F5"])
+@pytest.mark.parametrize(
+    "rendered,settling,confirmed",
+    [
+        ((255, 213, 161), 0, True),
+        ((255, 213, 161), 0.35, True),
+        ((255, 146, 39), 0, True),
+        ((0, 0, 255), 0, False),
+        ((0, 0, 0), 0, False),
+    ],
+)
+async def test_h6076_whole_kelvin_confirms_device_render_without_aa05_kelvin(
+    hass, monkeypatch, virtual_clock, rendered, settling, confirmed
+):
+    """Firmware 1.04.05 answers Kelvin with AA05 15 01 0000 and paints its own white.
+
+    Observed on a physical lamp: 4000 K sent with companion ffcda6 read back as the
+    table's ffd5a1 on every segment, while AA05 never carried Kelvin. Issue #247's
+    owner capture shows an off-table white (ff9227), so any settled warm white confirms.
+    """
+    c = GoveeBLECoordinator(hass, "AA:BB:CC:DD:EE:FF", "H6076", configuration_url=None)
+    c.is_on = True
+
+    def reply(domain, body):
+        frame = bytes([0xAA, domain, *body]).ljust(19, b"\0")
+        c._notify_callback(None, bytearray(frame + bytes([xor_checksum(frame)])))
+
+    count = c.profile.segment_count
+    colors = [(255, 255, 255)] * count
+    brightness = [100] * count
+    writes = []
+    written_at = None
+
+    async def transmit(_uuid, packet, **_kwargs):
+        nonlocal written_at
+        if packet[0] == 0x33:
+            writes.append(packet)
+            written_at = asyncio.get_running_loop().time()
+            return
+        if packet[1] == 5:
+            reply(5, [0x15, 1, 0, 0])
+        elif packet[1] == 0xA5:
+            page = packet[2]
+            if written_at is not None:
+                transient = asyncio.get_running_loop().time() - written_at < settling
+                colors[:] = [(0, 0, 0) if transient else rendered] * count
+            start = (page - 1) * 4
+            body = [page]
+            for index in range(start, min(start + 4, count)):
+                body.extend([brightness[index], *colors[index]])
+            reply(0xA5, body)
+        elif packet[1] == 1:
+            reply(1, [1])
+        elif packet[1] == 4:
+            reply(4, [20])
+
+    client = MagicMock(is_connected=True, write_gatt_char=AsyncMock(side_effect=transmit))
+    c._client = client
+    monkeypatch.setattr(c, "_ensure_connected", AsyncMock(return_value=client))
+    monkeypatch.setattr(c, "_renew_foreground_lease", MagicMock())
+    light = GoveeBLELight(c)
+    monkeypatch.setattr(light, "_async_supersede_preview", AsyncMock())
+    monkeypatch.setattr(light, "_notify_state_changed", MagicMock())
+    if confirmed:
+        await light.async_turn_on(color_temp_kelvin=4000)
+        assert light.color_temp_kelvin == 4000 and c.color_temp_kelvin_source == "retained"
+        assert c.segment_colors == [rendered] * count
+    else:
+        with pytest.raises(HomeAssistantError):
+            await light.async_turn_on(color_temp_kelvin=4000)
+    assert len(writes) == 1
+    static = parse_static_write(writes[0], "H6076", profile=c.profile)
+    assert static is not None and static.whole_strip and static.kelvin == 4000
+    assert static.kelvin_companion_rgb == (255, 213, 161)
+
+
+@pytest.mark.parametrize("model", ["H66A0", "H1A42", "H61F5", "H6076"])
 async def test_native_white_recovery_requires_known_rgb_intent(hass, monkeypatch, model):
     c = GoveeBLECoordinator(hass, "AA:BB:CC:DD:EE:FF", model, configuration_url=None)
     c.is_on = True

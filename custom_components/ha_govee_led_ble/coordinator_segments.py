@@ -108,7 +108,8 @@ class _SegmentMixin(_CoordinatorBase):
                             if profile.segment_kelvin_renders_device_rgb:
                                 rendered = next(iter(selected_colors))
                                 matches = len(selected_colors) == 1 and rendered[0] >= 200 and rendered[1] >= 100
-                                if static.whole_strip:
+                                # Only a model whose AA05 echoes Kelvin can confirm it there.
+                                if static.whole_strip and profile.static_readback_kelvin:
                                     matches = matches and (
                                         self.color_temp_kelvin_source == "observed"
                                         and self._field_revisions.get("color_temp_kelvin", 0) > kelvin_revision
