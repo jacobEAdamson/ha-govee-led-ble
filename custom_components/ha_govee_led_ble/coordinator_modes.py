@@ -50,14 +50,6 @@ class PreModeSnapshot:
 class _ActiveModeMixin(_CoordinatorBase):
     """Derives the coarse operating mode and routes music-mode entry/exit."""
 
-    music_separation_point: int
-    music_separation_gradient: bool
-    music_hopping_brightness: int
-    music_piano_key_count: int
-    music_fountain_direction: str
-    music_daynight_segments: int
-    music_daynight_speed: int
-    music_daynight_gradient: bool
     _scene_code: int | None
     _music_calm: bool | None = None
     _music_palette: tuple[str, tuple[tuple[int, int, int], ...]] | None = None

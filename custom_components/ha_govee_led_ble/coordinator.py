@@ -58,7 +58,6 @@ from .coordinator_status import (
     StatusDomain,
 )
 from .effect_contracts import CapabilityState
-from .effect_deployments import PriorControlState
 from .generated_protocol_adapter import (
     BulkStatusCollector,
     build_black_border_query,
@@ -93,7 +92,6 @@ from .light_commands import (
     parse_static_write,
 )
 from .music_semantics import (
-    capture_music_parameters,
     music_body_params_for_mode,
 )
 from .native_profile_controls import (
@@ -363,88 +361,6 @@ class GoveeBLECoordinator(
             configuration_url=self.configuration_url,
             sw_version=self.fw_version,
             hw_version=self.hw_version,
-        )
-
-    def capture_effect_control_state(self) -> PriorControlState:
-        zone_flags = {
-            name: value
-            for name, value in self.boolean_control_state.items()
-            if name in {"panel_enabled", "ring_enabled"}
-            and self._notify_started_monotonic is not None
-            and self._field_received_at.get(f"boolean_{name}", -1) >= self._notify_started_monotonic
-        }
-        # active_mode hides the resident mode while powered off and maps unknown to colour.
-        mode = (
-            "unknown"
-            if self.color_mode is ParsedMode.UNKNOWN
-            else "custom"
-            if self.diy_code is not None
-            else "scene"
-            if self.effect is not None or self.scene_code is not None
-            else "music"
-            if self.color_mode is ParsedMode.MUSIC or self.music_mode not in (None, "off")
-            else "video"
-            if self.video_mode not in (None, "off")
-            else "colour"
-        )
-        return PriorControlState(
-            mode=mode,
-            is_on=self.is_on,
-            brightness_pct=self.brightness_pct,
-            rgb_color=self.rgb_color,
-            color_temp_kelvin=self.color_temp_kelvin,
-            static_rgb_known=self._static_rgb_known and self.segment_state_source == "observed",
-            static_gradual=self.static_gradual if self.color_mode is ParsedMode.COLOUR else None,
-            panel_enabled=zone_flags.get("panel_enabled"),
-            ring_enabled=zone_flags.get("ring_enabled"),
-            segment_colors=tuple(self.segment_colors) if self.segment_state_source == "observed" else None,
-            segment_brightness=tuple(self.segment_brightness)
-            if self.segment_state_source == "observed" and self.segment_brightness_readable
-            else None,
-            effect=self.effect,
-            scene_code=self.scene_code,
-            diy_code=self.diy_code,
-            music_mode=self.music_mode,
-            music_model=self.model,
-            music_parameters=capture_music_parameters(self, self.profile, self.music_mode),
-            music_palette=self.music_palette,
-            music_body=self.music_body,
-            video_mode=self.video_mode,
-            video_parameters=dict(self.video_parameters) if self.video_parameters is not None else None,
-            music_sensitivity=self.music_sensitivity,
-            music_calm=self.music_calm,
-            music_color=self.music_color,
-            music_separation_point=self.music_separation_point,
-            music_separation_gradient=self.music_separation_gradient,
-            music_hopping_brightness=self.music_hopping_brightness,
-            music_piano_key_count=self.music_piano_key_count,
-            music_fountain_direction=self.music_fountain_direction,
-            music_daynight_segments=self.music_daynight_segments,
-            music_daynight_speed=self.music_daynight_speed,
-            music_daynight_gradient=self.music_daynight_gradient,
-            video_full_screen=self.video_full_screen,
-            video_saturation=self.video_saturation,
-            video_sound_effects=self.video_sound_effects,
-            video_sound_effects_softness=self.video_sound_effects_softness,
-            white_balance_red=self.white_balance_red,
-            white_balance_blue=self.white_balance_blue,
-            white_balance_flag=self.white_balance_flag,
-            white_balance_default_flag=self.white_balance_default_flag,
-            white_balance_default_red=self.white_balance_default_red,
-            white_balance_default_blue=self.white_balance_default_blue,
-            white_balance_scalar=self.white_balance_scalar,
-            relative_brightness=self.relative_brightness,
-            relative_brightness_left=self.relative_brightness_left,
-            relative_brightness_top=self.relative_brightness_top,
-            relative_brightness_right=self.relative_brightness_right,
-            relative_brightness_bottom=self.relative_brightness_bottom,
-            relative_brightness_strip_left=self.relative_brightness_strip_left,
-            relative_brightness_strip_right=self.relative_brightness_strip_right,
-            blank_screen=self.blank_screen,
-            black_border=self.black_border,
-            blank_screen_detection=self.blank_screen_detection,
-            blank_screen_low_brightness_duration_seconds=self.blank_screen_low_brightness_duration_seconds,
-            blank_screen_same_tone_duration_seconds=self.blank_screen_same_tone_duration_seconds,
         )
 
     @callback

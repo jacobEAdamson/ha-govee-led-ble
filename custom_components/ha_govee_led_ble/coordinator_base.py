@@ -50,6 +50,36 @@ class _CoordinatorBase(DataUpdateCoordinator[dict[str, Any]]):
     music_sensitivity: int
     music_color: tuple[int, int, int] | None
     music_calm: bool
+    music_separation_point: int
+    music_separation_gradient: bool
+    music_hopping_brightness: int
+    music_piano_key_count: int
+    music_fountain_direction: str
+    music_daynight_segments: int
+    music_daynight_speed: int
+    music_daynight_gradient: bool
+    video_parameters: dict[str, Any] | None
+    video_full_screen: bool
+    video_saturation: int
+    video_sound_effects: bool
+    video_sound_effects_softness: int
+    white_balance_red: int | None
+    white_balance_blue: int | None
+    white_balance_flag: int | None
+    white_balance_default_flag: int | None
+    white_balance_default_red: int | None
+    white_balance_default_blue: int | None
+    relative_brightness: int | None
+    relative_brightness_left: int | None
+    relative_brightness_top: int | None
+    relative_brightness_right: int | None
+    relative_brightness_bottom: int | None
+    relative_brightness_strip_left: int | None
+    relative_brightness_strip_right: int | None
+    blank_screen: bool | None
+    blank_screen_detection: int | None
+    blank_screen_low_brightness_duration_seconds: int | None
+    blank_screen_same_tone_duration_seconds: int | None
     diy_code: int | None
     color_mode: ParsedMode | None
     _control_lock: BLEControlArbiter
@@ -65,6 +95,7 @@ class _CoordinatorBase(DataUpdateCoordinator[dict[str, Any]]):
     _pre_mode_snapshot: PreModeSnapshot
     segment_colors: list[tuple[int, int, int]]
     segment_brightness: list[int]
+    segment_brightness_readable: bool
     boolean_control_state: dict[str, bool]
     _music_palette: tuple[str, tuple[tuple[int, int, int], ...]] | None
     _music_body: tuple[str, bytes] | None
@@ -76,8 +107,10 @@ class _CoordinatorBase(DataUpdateCoordinator[dict[str, Any]]):
     _encryption: GoveeEncryptionSession | None
     _notification_token: object | None
     _last_rx_monotonic: float | None
+    _notify_started_monotonic: float | None
     _expected_state: dict[str, tuple[Any, float]]
     _field_revisions: dict[str, int]
+    _field_received_at: dict[str, float]
     _observed_physical_ic_count: int | None
     _bulk_collector: BulkStatusCollector | None
     _bulk_query_deadline: float | None
@@ -227,6 +260,15 @@ class _CoordinatorBase(DataUpdateCoordinator[dict[str, Any]]):
 
         @property
         def active_mode(self) -> str: ...
+
+        @property
+        def scene_code(self) -> int | None: ...
+
+        @property
+        def music_palette(self) -> tuple[tuple[int, int, int], ...] | None: ...
+
+        @property
+        def music_body(self) -> bytes | None: ...
 
         @property
         def scene_name_set(self) -> frozenset[str]: ...
