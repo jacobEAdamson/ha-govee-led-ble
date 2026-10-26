@@ -30,6 +30,15 @@ class _SegmentMixin(_CoordinatorBase):
         if not selected or static.segment_mask & ~profile.whole_device_mask:
             raise ValueError("Kelvin mask is outside the current geometry")
         expected = kelvin_companion_rgb(static.kelvin, profile)
+
+        def rendering_matches(colors: set[tuple[int, int, int]]) -> bool:
+            if not profile.segment_kelvin_renders_device_rgb:
+                return colors == {expected}
+            if len(colors) != 1:
+                return False
+            red, green, _ = next(iter(colors))
+            return red >= 200 and green >= 100
+
         started = time.monotonic()
         rounds = 0
         outcome = "failed"
@@ -105,18 +114,17 @@ class _SegmentMixin(_CoordinatorBase):
                                 for index, color in enumerate(self.segment_colors)
                                 if index not in selected
                             )
-                            if profile.segment_kelvin_renders_device_rgb:
-                                rendered = next(iter(selected_colors))
-                                matches = len(selected_colors) == 1 and rendered[0] >= 200 and rendered[1] >= 100
-                                # Only a model whose AA05 echoes Kelvin can confirm it there.
-                                if static.whole_strip and profile.static_readback_kelvin:
-                                    matches = matches and (
-                                        self.color_temp_kelvin_source == "observed"
-                                        and self._field_revisions.get("color_temp_kelvin", 0) > kelvin_revision
-                                        and self.color_temp_kelvin == static.kelvin
-                                    )
-                            else:
-                                matches = selected_colors == {expected}
+                            matches = rendering_matches(selected_colors)
+                            if (
+                                profile.segment_kelvin_renders_device_rgb
+                                and static.whole_strip
+                                and profile.static_readback_kelvin
+                            ):
+                                matches = matches and (
+                                    self.color_temp_kelvin_source == "observed"
+                                    and self._field_revisions.get("color_temp_kelvin", 0) > kelvin_revision
+                                    and self.color_temp_kelvin == static.kelvin
+                                )
                             mode_matches = (
                                 not profile.kelvin_companion_uses_table or self.color_mode is ParsedMode.COLOUR
                             )
@@ -137,15 +145,16 @@ class _SegmentMixin(_CoordinatorBase):
                     if (
                         outcome not in {"confirmed", "confirmed_rendering"}
                         and static.whole_strip
-                        and not profile.segment_kelvin_renders_device_rgb
+                        and (not profile.segment_kelvin_renders_device_rgb or not profile.static_readback_kelvin)
                         and self.profile == profile
                         and self.segment_state_source == "observed"
                         and self.color_temp_kelvin_source != "observed"
-                        and set(self.segment_colors) != {expected}
+                        and not rendering_matches(set(self.segment_colors))
                     ):
                         self._expected_state.pop("color_temp_kelvin", None)
                         self.color_temp_kelvin = None
                         self.color_temp_kelvin_source = "initial"
+                        self.async_set_updated_data(self.data or {})
                     _LOGGER.debug(
                         "Kelvin verification model=%s requested=%s sent=%s mask=%x segments=%s table=%s "
                         "rounds=%s elapsed=%.3f outcome=%s",

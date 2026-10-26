@@ -111,6 +111,7 @@ _QUALIFIED_CONTEXTS: tuple[tuple[str, str, int | None, int | None, str | None, s
     ("H60A6-pact-1-4", "H60A6", 1, 4, None, None),
     ("H6076-unqualified", "H6076", None, None, None, None),
     ("H6076-pact1-unidentified-fw", "H6076", 1, 1, None, None),
+    ("H6076-pact2-unidentified-fw", "H6076", 2, 1, None, None),
     ("H6076-pact1-legacy-music", "H6076", 1, 1, "1.01.00", "3.01.01"),
     ("H6076-pact2-legacy-music", "H6076", 2, 1, "1.01.00", "3.01.01"),
     ("H6076-pact2-music", "H6076", 2, 1, "1.04.05", "3.05.00"),

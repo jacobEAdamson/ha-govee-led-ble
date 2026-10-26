@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import voluptuous as vol
 from bleak import BleakError
+from homeassistant.components.light import ColorMode
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from custom_components.ha_govee_led_ble.const import get_profile
@@ -187,7 +188,7 @@ async def test_masked_kelvin_requires_fresh_rgb_and_preserves_siblings(hass, mon
 
 @pytest.mark.parametrize(
     "failure",
-    [None, "non_white", "disagreeing_selected", "sibling", "wrong_kelvin"],
+    [None, "non_white", "disagreeing_selected", "sibling", "wrong_kelvin", "missing_kelvin"],
 )
 async def test_h66a0_segment_kelvin_confirms_device_rendered_rgb_and_mode_kelvin(
     hass, monkeypatch, virtual_clock, failure
@@ -207,7 +208,7 @@ async def test_h66a0_segment_kelvin_confirms_device_rendered_rgb_and_mode_kelvin
             colors[1] = (255, 180, 90) if failure == "disagreeing_selected" else (255, 157, 51)
             if failure == "sibling":
                 colors[2] = (99, 99, 99)
-            elif failure == "wrong_kelvin":
+            elif failure in {"wrong_kelvin", "missing_kelvin"}:
                 colors[:] = [(255, 157, 51)] * 14
             return
         if packet[:2] == b"\xaa\x05":
@@ -228,7 +229,9 @@ async def test_h66a0_segment_kelvin_confirms_device_rendered_rgb_and_mode_kelvin
     monkeypatch.setattr(coordinator, "_ensure_connected", AsyncMock(return_value=client))
     if failure:
         with pytest.raises(HomeAssistantError):
-            await light.async_set_segment_color_temp(list(range(1, 15)) if failure == "wrong_kelvin" else [1, 2], 3000)
+            await light.async_set_segment_color_temp(
+                list(range(1, 15)) if failure in {"wrong_kelvin", "missing_kelvin"} else [1, 2], 3000
+            )
     else:
         await light.async_set_segment_color_temp([1, 2], 3000)
         assert coordinator.color_temp_kelvin is None
@@ -327,17 +330,18 @@ async def test_issue_429_six_operations_settle_without_replaying_kelvin(
 
 
 @pytest.mark.parametrize(
-    "rendered,settling,confirmed",
+    "rendered,settling,confirmed,preservation_failure",
     [
-        ((255, 213, 161), 0, True),
-        ((255, 213, 161), 0.35, True),
-        ((255, 146, 39), 0, True),
-        ((0, 0, 255), 0, False),
-        ((0, 0, 0), 0, False),
+        ((255, 213, 161), 0, True, False),
+        ((255, 213, 161), 0.35, True, False),
+        ((255, 146, 39), 0, True, False),
+        ((0, 0, 255), 0, False, False),
+        ((0, 0, 0), 0, False, False),
+        ((255, 146, 39), 0, False, True),
     ],
 )
 async def test_h6076_whole_kelvin_confirms_device_render_without_aa05_kelvin(
-    hass, monkeypatch, virtual_clock, rendered, settling, confirmed
+    hass, monkeypatch, virtual_clock, rendered, settling, confirmed, preservation_failure
 ):
     """Firmware 1.04.05 answers Kelvin with AA05 15 01 0000 and paints its own white.
 
@@ -353,23 +357,30 @@ async def test_h6076_whole_kelvin_confirms_device_render_without_aa05_kelvin(
         c._notify_callback(None, bytearray(frame + bytes([xor_checksum(frame)])))
 
     count = c.profile.segment_count
-    colors = [(255, 255, 255)] * count
+    colors = [(10, 20, 30)] * count
     brightness = [100] * count
     writes = []
     written_at = None
+    written_static = None
 
     async def transmit(_uuid, packet, **_kwargs):
-        nonlocal written_at
+        nonlocal written_at, written_static
         if packet[0] == 0x33:
             writes.append(packet)
+            written_static = parse_static_write(packet, "H6076", profile=c.profile)
+            assert written_static is not None
             written_at = asyncio.get_running_loop().time()
+            if written_static.rgb is not None:
+                colors[:] = [written_static.rgb] * count
+            if preservation_failure:
+                brightness[:] = [99] * count
             return
         if packet[1] == 5:
             reply(5, [0x15, 1, 0, 0])
         elif packet[1] == 0xA5:
             page = packet[2]
-            if written_at is not None:
-                transient = asyncio.get_running_loop().time() - written_at < settling
+            if written_at is not None and written_static.kelvin is not None:
+                transient = asyncio.get_running_loop().time() < written_at + settling
                 colors[:] = [(0, 0, 0) if transient else rendered] * count
             start = (page - 1) * 4
             body = [page]
@@ -388,6 +399,10 @@ async def test_h6076_whole_kelvin_confirms_device_render_without_aa05_kelvin(
     light = GoveeBLELight(c)
     monkeypatch.setattr(light, "_async_supersede_preview", AsyncMock())
     monkeypatch.setattr(light, "_notify_state_changed", MagicMock())
+    updates = []
+    monkeypatch.setattr(
+        c, "async_set_updated_data", lambda _data: updates.append((c.color_temp_kelvin, c.color_temp_kelvin_source))
+    )
     if confirmed:
         await light.async_turn_on(color_temp_kelvin=4000)
         assert light.color_temp_kelvin == 4000 and c.color_temp_kelvin_source == "retained"
@@ -395,10 +410,23 @@ async def test_h6076_whole_kelvin_confirms_device_render_without_aa05_kelvin(
     else:
         with pytest.raises(HomeAssistantError):
             await light.async_turn_on(color_temp_kelvin=4000)
+        assert c.segment_state_source == "observed" and c.segment_colors == [rendered] * count
+        if preservation_failure:
+            assert c.color_temp_kelvin == 4000
+        else:
+            assert c.color_temp_kelvin is None
+            assert c.color_temp_kelvin_source == "initial"
+            assert light.color_mode is ColorMode.RGB
+            assert updates[-1] == (None, "initial")
     assert len(writes) == 1
     static = parse_static_write(writes[0], "H6076", profile=c.profile)
     assert static is not None and static.whole_strip and static.kelvin == 4000
     assert static.kelvin_companion_rgb == (255, 213, 161)
+    if confirmed:
+        await light.async_turn_on(rgb_color=(10, 20, 30))
+        assert await c.async_refresh_segments()
+        assert light.color_mode is ColorMode.RGB and light.color_temp_kelvin is None
+        assert c.segment_colors == [(10, 20, 30)] * count
 
 
 @pytest.mark.parametrize("model", ["H66A0", "H1A42", "H61F5", "H6076"])

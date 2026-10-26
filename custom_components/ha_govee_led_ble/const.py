@@ -518,12 +518,8 @@ _H6076_PROFILE = ModelProfile(
     min_color_temp_kelvin=2700,
     max_color_temp_kelvin=6500,
     readback_min_color_temp_kelvin=2200,
-    # Firmware 1.04.05 answers every Kelvin write with AA05 15 01 0000: the static reply
-    # never carries Kelvin. The lamp paints its own white into the segment pages and
-    # ignores the companion sent (4000 K with companion ffcda6 read back as the table's
-    # ffd5a1), while issue #247's capture shows 2700 K as ff9227, off the table. So send
-    # the table companion as the Govee app does, and confirm a settled warm-white render
-    # in the segment pages instead of waiting for an AA05 echo.
+    # Issue #476: static status can omit Kelvin. Segment rendering confirms plausible
+    # white, not an exact Kelvin measurement or losslessly restorable native-white intent.
     kelvin_companion_uses_table=True,
     color_temp_step_kelvin=100,
     segment_colour_mode_ambiguous=True,

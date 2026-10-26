@@ -101,6 +101,13 @@ def test_h6076_uses_its_whole_device_mask_and_kelvin_range() -> None:
     assert build_segment_brightness([1, 7], 50, "H6076")[5:7] == b"\x41\x00"
 
 
+@pytest.mark.parametrize("requested,expected,rgb", [(3049, 3000, (255, 185, 105)), (3050, 3100, (255, 189, 111))])
+def test_h6076_whole_kelvin_rounds_with_its_companion(requested, expected, rgb):
+    static = parse_static_write(build_color_temp(requested, "H6076"), "H6076")
+    assert static is not None and static.whole_strip
+    assert (static.kelvin, static.kelvin_companion_rgb) == (expected, rgb)
+
+
 def test_h7020_sends_percent_brightness_and_whole_string_static_commands() -> None:
     profile = replace(MODEL_PROFILES["H7020"], whole_device_mask=0x7FFF, segment_count=15)
     assert build_brightness(100, "H7020") == H("3304640000000000000000000000000000000053")

@@ -123,9 +123,11 @@ H6076_TORCH_BODY = (
     bytes.fromhex("a3000102415007ff0000ff7f00ffff0000ff0036"),
     bytes.fromhex("a3ff0000ff00ffff8b00ff0000000000000000d7"),
 )
-# Issue #247 owner-captured H6076 segment group 2 reply (3 records at 2700 K + 4 zero bytes).
+# Issue #247 owner-captured H6076 segment group 2 reply (3 rendered-white records + 4 zero bytes).
 H6076_SEGMENT_GROUP2_STATUS = bytes.fromhex("aaa50264ff922764ff922764ff92270000000037")
 H6076_STATIC_KELVIN_STATUS = bytes.fromhex("aa0515010a8c000000000000000000000000003d")
+# Issue #476 firmware 1.04.05: static status has a gradual bit but no Kelvin echo.
+H6076_STATIC_NO_KELVIN_STATUS = bytes.fromhex("aa051501000000000000000000000000000000bb")
 STATUS_SEGMENTS = bytes.fromhex("aaa50164ff880d64ff880d64ff880d0000000010")
 H617A_SEGMENT_QUERY = bytes.fromhex("aaa505000000000000000000000000000000000a")
 H6199_SEGMENT_QUERY = bytes.fromhex("aaa504000000000000000000000000000000000b")
@@ -1084,6 +1086,7 @@ REPRESENTATIVE_ROOTS = (
     pytest.param(H6125StatusReply, H6125_MUSIC_STATUS, id="H6125 submode 0x11 music status"),
     pytest.param(H6076StatusReply, H6076_SEGMENT_GROUP2_STATUS, id="H6076 owner segment group 2 status"),
     pytest.param(H6076StatusReply, H6076_STATIC_KELVIN_STATUS, id="H6076 static Kelvin status"),
+    pytest.param(H6076StatusReply, H6076_STATIC_NO_KELVIN_STATUS, id="H6076 owner zero Kelvin status"),
     *(
         (pytest.param(H6179ScheduleWrite, H6179_SCHEDULE, id="H6179 schedule evidence"),)
         if H6179ScheduleWrite is not None
@@ -1283,6 +1286,10 @@ def test_h6076_selector_and_companion_fields_match_the_reporter_capture() -> Non
     static_kelvin = _parse(H6076StatusReply, H6076_STATIC_KELVIN_STATUS)
     assert static_kelvin.domain.name == "colormode" and static_kelvin.body.mode.name == "static"
     assert (static_kelvin.body.mode_body.sub, static_kelvin.body.mode_body.kelvin) == (1, 2700)
+
+    static_no_kelvin = _parse(H6076StatusReply, H6076_STATIC_NO_KELVIN_STATUS)
+    assert static_no_kelvin.body.mode.name == "static"
+    assert (static_no_kelvin.body.mode_body.sub, static_no_kelvin.body.mode_body.kelvin) == (1, 0)
 
     for frame in H6076_TORCH_BODY:
         assert len(frame) == 20 and xor_checksum(frame) == 0
