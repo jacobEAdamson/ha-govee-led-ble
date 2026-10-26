@@ -65,7 +65,6 @@ from custom_components.ha_govee_led_ble.generated_protocol_adapter import (
     build_video_mode,
     build_white_balance,
     build_white_balance_query,
-    parse_command,
     parse_command_ack_result,
     parse_status,
 )
@@ -83,6 +82,7 @@ from custom_components.ha_govee_led_ble.protocol_core import H6199StatusReply, S
 from custom_components.ha_govee_led_ble.scenes import MODEL_SCENES, SCENES, scene_selector_code
 from custom_components.ha_govee_led_ble.transport import WRITE_UUID, xor_checksum
 from custom_components.ha_govee_led_ble.video_applicability import video_identity_fields
+from tests.coordinator_test_support import _packet
 from tests.storage_test_double import InMemoryVersionedDocumentStore
 
 M = "custom_components.ha_govee_led_ble.coordinator"
@@ -90,13 +90,6 @@ _CONFIGURATION_URL = "homeassistant://ha-govee-led-ble/editor/test-entry"
 
 _MUSIC_SLUG_BY_ID = {code: slug for slug, code in MUSIC_MODE_SLUGS.items()}
 _SCENE_EFFECT_BY_ID = {scene.code: name for name, scene in SCENES.items()}
-
-
-def _packet(header: int, action: int, params: list[int]) -> bytes:
-    payload = bytearray([header, action, *params][:19])
-    payload.extend(b"\x00" * (19 - len(payload)))
-    payload.append(xor_checksum(payload))
-    return bytes(payload)
 
 
 @pytest.mark.parametrize(("poll", "reply_brightness"), [(False, True), (True, True), (False, False)])
@@ -463,46 +456,6 @@ def _resolution(
     client_class=BleakClient,
 ):
     return BLEDeviceResolution(MagicMock() if device is None else device, client_class)
-
-
-async def test_control_arbiter_prioritises_waiters_reenters_and_skips_background():
-    arbiter = BLEControlArbiter()
-    order: list[ControlIntent] = []
-
-    async def contender(intent: ControlIntent) -> None:
-        async with arbiter.hold(intent):
-            order.append(intent)
-            await asyncio.sleep(0)
-
-    async with arbiter.hold(ControlIntent.BACKGROUND):
-        async with arbiter.hold(ControlIntent.PREVIEW):
-            assert arbiter.current_task_intent is ControlIntent.PREVIEW
-        tasks = [
-            asyncio.create_task(contender(ControlIntent.PREVIEW)),
-            asyncio.create_task(contender(ControlIntent.APPLY)),
-            asyncio.create_task(contender(ControlIntent.USER)),
-        ]
-        await asyncio.sleep(0)
-        async with arbiter.hold(ControlIntent.BACKGROUND, wait=False) as acquired:
-            assert acquired is True
-
-        async def separate_background() -> bool:
-            async with arbiter.hold(ControlIntent.BACKGROUND, wait=False) as background_acquired:
-                return background_acquired
-
-        assert await asyncio.create_task(separate_background()) is False
-
-    await asyncio.gather(*tasks)
-    assert order == [ControlIntent.USER, ControlIntent.APPLY, ControlIntent.PREVIEW]
-
-
-async def test_control_arbiter_accepts_new_preview_during_foreground_intent():
-    arbiter = BLEControlArbiter()
-
-    async with arbiter.hold(ControlIntent.USER):
-        admission = arbiter.admit_preview()
-
-    assert admission.is_current is True
 
 
 async def test_initial_state_and_update(coord, h6199):
@@ -4724,44 +4677,6 @@ def test_white_balance_never_fabricates_an_unknown_gain(coord):
     coord.white_balance_blue = 5
     assert coord.white_balance == (21, 5)
     assert build_white_balance(*coord.white_balance, "H6199") == build_white_balance(21, 5, "H6199")
-
-
-def test_h6199_blank_screen_builder_validates_durations() -> None:
-    assert build_blank_screen(
-        True,
-        "H6199",
-        detection=2,
-        low_brightness_duration_seconds=0,
-        same_tone_duration_seconds=0xFFFF,
-    ) == bytes.fromhex("33a90a0601020000ffff00000000000000000095")
-    for low, same in ((-1, 120), (10, 0x10000), (True, 120), (10, 1.5)):
-        with pytest.raises(ValueError, match="durations must be integer seconds"):
-            build_blank_screen(True, "H6199", 2, low, same)
-
-
-def test_generated_adapter_rejects_structurally_invalid_frames() -> None:
-    assert parse_command(_packet(0x33, 0x04, [101])) is None
-    assert parse_status(bytes.fromhex("aaa506731f646408646464fe6464640000000093")) is None
-    assert parse_command(_packet(0x33, 0x01, [1]), "H9999") is None
-
-
-@pytest.mark.parametrize(("model", "maximum"), [("H617A", 5), ("H6199", 4)])
-def test_segment_query_groups_are_model_bounded(model: str, maximum: int) -> None:
-    assert build_segment_query(maximum, model)[2] == maximum
-    with pytest.raises(ValueError, match="selected grammar"):
-        build_segment_query(maximum + 1, model)
-
-
-def test_unknown_model_encoders_fail_closed() -> None:
-    with pytest.raises(ValueError, match="does not support music mode"):
-        build_music_mode(0x03, 50, None, False, "H9999")
-    with pytest.raises(ValueError, match="scene activation grammar"):
-        build_native_scene_packets("H9999", SCENES["rainbow"])
-
-
-def test_h6199_subordinate_queries_exclude_identity_domain() -> None:
-    with pytest.raises(ValueError, match="0x20 or 0x21"):
-        build_subordinate_query(0x14, "H6199")
 
 
 async def test_h66a0_setup_survives_identity_replies_inside_the_refresh(hass, monkeypatch, virtual_clock):

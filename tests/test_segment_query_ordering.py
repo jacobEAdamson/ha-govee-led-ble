@@ -27,7 +27,7 @@ from custom_components.ha_govee_led_ble.generated_protocol_adapter import (
 from custom_components.ha_govee_led_ble.govee_encryption.session import GoveeEncryptionSession
 from custom_components.ha_govee_led_ble.light import GoveeBLELight
 from custom_components.ha_govee_led_ble.light_commands import build_color_rgb, build_segment_brightness
-from tests.test_coordinator import _packet
+from tests.coordinator_test_support import _packet
 
 
 @pytest.fixture

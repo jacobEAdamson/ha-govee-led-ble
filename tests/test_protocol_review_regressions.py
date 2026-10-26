@@ -23,6 +23,13 @@ from custom_components.ha_govee_led_ble.generated_protocol_adapter import (
 from custom_components.ha_govee_led_ble.protocol_core import _check_tree, _write
 from custom_components.ha_govee_led_ble.protocol_h6199 import build_h6199_control
 from custom_components.ha_govee_led_ble.transport import xor_checksum
+from tests.coordinator_test_support import _packet
+
+
+def test_generated_adapter_rejects_structurally_invalid_frames() -> None:
+    assert parse_command(_packet(0x33, 0x04, [101])) is None
+    assert parse_status(bytes.fromhex("aaa506731f646408646464fe6464640000000093")) is None
+    assert parse_command(_packet(0x33, 0x01, [1]), "H9999") is None
 
 
 def frame(prefix):

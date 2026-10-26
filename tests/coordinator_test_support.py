@@ -1,0 +1,10 @@
+"""Shared frame construction for coordinator tests."""
+
+from custom_components.ha_govee_led_ble.transport import xor_checksum
+
+
+def _packet(header: int, action: int, params: list[int]) -> bytes:
+    payload = bytearray([header, action, *params][:19])
+    payload.extend(b"\x00" * (19 - len(payload)))
+    payload.append(xor_checksum(payload))
+    return bytes(payload)

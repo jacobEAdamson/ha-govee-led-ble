@@ -5,7 +5,14 @@ from dataclasses import replace
 import pytest
 
 from custom_components.ha_govee_led_ble.const import MODEL_PROFILES, device_profile
-from custom_components.ha_govee_led_ble.generated_protocol_adapter import build_brightness, build_power
+from custom_components.ha_govee_led_ble.generated_protocol_adapter import (
+    build_blank_screen,
+    build_brightness,
+    build_music_mode,
+    build_power,
+    build_segment_query,
+    build_subordinate_query,
+)
 from custom_components.ha_govee_led_ble.light_commands import (
     ALL_SEGMENTS,
     ALL_SEGMENTS_MASK,
@@ -21,9 +28,43 @@ from custom_components.ha_govee_led_ble.light_commands import (
     scale_segment_groups,
     segments_to_mask,
 )
+from custom_components.ha_govee_led_ble.native_scenes import build_native_scene_packets
+from custom_components.ha_govee_led_ble.scenes import SCENES
 from custom_components.ha_govee_led_ble.transport import xor_checksum
 
 H = bytes.fromhex
+
+
+def test_h6199_blank_screen_builder_validates_durations() -> None:
+    assert build_blank_screen(
+        True,
+        "H6199",
+        detection=2,
+        low_brightness_duration_seconds=0,
+        same_tone_duration_seconds=0xFFFF,
+    ) == bytes.fromhex("33a90a0601020000ffff00000000000000000095")
+    for low, same in ((-1, 120), (10, 0x10000), (True, 120), (10, 1.5)):
+        with pytest.raises(ValueError, match="durations must be integer seconds"):
+            build_blank_screen(True, "H6199", 2, low, same)
+
+
+@pytest.mark.parametrize(("model", "maximum"), [("H617A", 5), ("H6199", 4)])
+def test_segment_query_groups_are_model_bounded(model: str, maximum: int) -> None:
+    assert build_segment_query(maximum, model)[2] == maximum
+    with pytest.raises(ValueError, match="selected grammar"):
+        build_segment_query(maximum + 1, model)
+
+
+def test_unknown_model_encoders_fail_closed() -> None:
+    with pytest.raises(ValueError, match="does not support music mode"):
+        build_music_mode(0x03, 50, None, False, "H9999")
+    with pytest.raises(ValueError, match="scene activation grammar"):
+        build_native_scene_packets("H9999", SCENES["rainbow"])
+
+
+def test_h6199_subordinate_queries_exclude_identity_domain() -> None:
+    with pytest.raises(ValueError, match="0x20 or 0x21"):
+        build_subordinate_query(0x14, "H6199")
 
 
 @pytest.mark.parametrize("model", ["H66A0", "H1A42", "H61F5"])
