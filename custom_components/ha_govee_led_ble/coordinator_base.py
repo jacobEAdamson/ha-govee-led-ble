@@ -115,6 +115,8 @@ class _CoordinatorBase(DataUpdateCoordinator[dict[str, Any]]):
     _bulk_collector: BulkStatusCollector | None
     _bulk_query_deadline: float | None
     _segment_query_generation: int | None
+    _configured_strings_confirmed: bool
+    _segment_query_incomplete: bool
     _segment_query_colors: list[tuple[int, int, int]] | None
     _segment_query_brightness: list[int] | None
     _segment_groups_observed: set[int]
@@ -162,6 +164,8 @@ class _CoordinatorBase(DataUpdateCoordinator[dict[str, Any]]):
         def _handle_dreamview_notification(self, frame: bytes) -> bool: ...
 
         def _apply_segment_group(self, generated: Any) -> tuple[str, ...]: ...
+
+        def _accept_expected_values(self, values: dict[str, Any]) -> bool: ...
 
         def _apply_configured_strings(self, count: int) -> None: ...
 

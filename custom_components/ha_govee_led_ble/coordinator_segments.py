@@ -1,10 +1,12 @@
-"""Segment painting and per-segment brightness for the Govee BLE coordinator."""
+"""Segment observations, refresh, painting and brightness for the Govee BLE coordinator."""
 
 import asyncio
 import logging
 import time
+from datetime import datetime
+from typing import Any
 
-from .const import ReadDomain
+from .const import ReadDomain, get_profile
 from .control_arbiter import ControlIntent, async_control_intent
 from .coordinator_base import _CoordinatorBase
 from .coordinator_status import ParsedMode
@@ -20,6 +22,163 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class _SegmentMixin(_CoordinatorBase):
+    @property
+    def _segment_group_count(self) -> int:
+        return self.profile.segment_group_count
+
+    def mark_segment_state_optimistic(
+        self,
+        *,
+        colours: list[tuple[int, int, int]] | None = None,
+        brightness: list[int] | None = None,
+    ) -> None:
+        if colours is not None:
+            self.segment_colors = colours
+            if self.rgb_color_source == "observed":
+                self.rgb_color_source = "retained"
+            if self.color_temp_kelvin_source == "observed":
+                self.color_temp_kelvin_source = "retained"
+        if brightness is not None:
+            self.segment_brightness = brightness
+        self.segment_state_source = "optimistic"
+        self.segment_state_observed_at = None
+        self._segment_groups_observed.clear()
+        self._segment_query_colors = None
+        self._segment_query_brightness = None
+
+    def mark_segment_state_restored(
+        self,
+        colours: list[tuple[int, int, int]],
+        brightness: list[int],
+    ) -> None:
+        self._static_rgb_known = False
+        self.segment_colors = colours
+        self.segment_brightness = brightness
+        self.segment_state_source = "restored"
+        self.segment_state_observed_at = None
+        self._segment_groups_observed.clear()
+        self._segment_query_colors = None
+        self._segment_query_brightness = None
+
+    def _apply_segment_group(self, generated: Any) -> tuple[str, ...]:
+        if (
+            self.profile.configured_string_counts
+            and (not self._configured_strings_confirmed or self._segment_query_generation != self._profile_generation)
+        ) or (
+            self.profile.ic_per_segment is not None
+            and self._segment_query_generation not in (None, self._profile_generation)
+        ):
+            raise ValueError("segment page has no current configured layout")
+        group = getattr(generated.body, "group", None)
+        records = getattr(generated.body, "segments", None)
+        count = getattr(generated.body, "num_segments", None)
+        group_size = self.profile.segment_group_size
+        if type(group) is not int or not 1 <= group <= self._segment_group_count:
+            raise ValueError("invalid segment group for model")
+        offset = (group - 1) * group_size
+        expected_count = min(group_size, self.profile.segment_count - offset)
+        if (
+            type(count) is int
+            and isinstance(records, list)
+            and len(records) == count
+            and expected_count < count <= group_size
+            and self.profile.segment_count < get_profile(self.model).segment_count
+        ):
+            records = records[:expected_count]
+            count = expected_count
+        if type(count) is not int or count != expected_count or not isinstance(records, list) or len(records) != count:
+            raise ValueError("segment record count does not match model page")
+        # Convert the entire page before touching an in-progress observation.
+        try:
+            page_colours = [(int(r.colour.red), int(r.colour.green), int(r.colour.blue)) for r in records]
+            brightness_fields = [hasattr(record, "brightness") for record in records]
+            if any(brightness_fields) and not all(brightness_fields):
+                raise ValueError("inconsistent segment brightness fields")
+            page_brightness = [int(r.brightness) for r in records] if all(brightness_fields) else None
+        except (AttributeError, TypeError, ValueError) as err:
+            raise ValueError("malformed segment record") from err
+        colours = self._segment_query_colors
+        brightness = self._segment_query_brightness
+        if colours is None or brightness is None:
+            colours = list(self.segment_colors)
+            brightness = list(self.segment_brightness)
+            self._segment_query_colors = colours
+            self._segment_query_brightness = brightness
+        colours[offset : offset + count] = page_colours
+        if page_brightness is not None:
+            brightness[offset : offset + count] = page_brightness
+        self._segment_groups_observed.add(group)
+        if len(self._segment_groups_observed) != self._segment_group_count:
+            return ()
+        if self._static_rgb_known and self.segment_colors != colours:
+            self._static_rgb_known = False
+        self.segment_colors = colours
+        if page_brightness is not None:
+            self.segment_brightness = brightness
+        self.segment_brightness_readable = page_brightness is not None
+        self._segment_query_colors = None
+        self._segment_query_brightness = None
+        self._segment_groups_observed.clear()
+        self.segment_state_source = "observed"
+        self.segment_state_observed_at = datetime.now().astimezone().isoformat()
+        observed = ["segment_colors"]
+        if page_brightness is not None:
+            observed.append("segment_brightness")
+        if (
+            self.color_mode is ParsedMode.COLOUR
+            and len(set(self.segment_colors)) != 1
+            and self.color_temp_kelvin_source != "observed"
+        ):
+            self.color_temp_kelvin = None
+            self.color_temp_kelvin_source = "initial"
+        # Direct static readback outranks rendered segments; a matching white point
+        # can retain last-known Kelvin but never proves a fresh Kelvin measurement.
+        if (
+            self.color_mode is ParsedMode.COLOUR
+            and len(set(self.segment_colors)) == 1
+            and self.rgb_color_source != "observed"
+            and (self.color_temp_kelvin is None or self.color_temp_kelvin_source != "observed")
+        ):
+            rendered = self.segment_colors[0]
+            kelvin = self.color_temp_kelvin
+            if (
+                kelvin is not None
+                and self._pending_kelvin != kelvin
+                and not (self.profile.segment_kelvin_renders_device_rgb and rendered[0] >= 200 and rendered[1] >= 100)
+                and rendered != kelvin_companion_rgb(kelvin, self.profile)
+            ):
+                kelvin = None
+            if self._accept_expected_values({"rgb_color": rendered, "color_temp_kelvin": kelvin}):
+                self.rgb_color = rendered
+                self.rgb_color_source = "segment"
+                if kelvin is None and self.color_temp_kelvin_source != "observed":
+                    self.color_temp_kelvin = None
+                    self.color_temp_kelvin_source = "initial"
+                observed.append("rgb_color")
+        return tuple(observed)
+
+    async def async_refresh_segments(self, *, timeout: float = 2.0) -> bool:
+        if not self.profile.state_readable or not self.profile.supports_segments:
+            return False
+        async with async_control_intent(self, ControlIntent.USER):
+            async with self._lock:
+                client = await self._ensure_connected()
+                baseline = self._field_revisions.get("segment_colors", 0)
+                ok = await self._send_state_queries(
+                    query_power=False,
+                    query_brightness=False,
+                    query_color_mode=False,
+                    query_segments=True,
+                    deadline=time.monotonic() + timeout,
+                )
+            return (
+                ok
+                and self._client is client
+                and client.is_connected
+                and not self._segment_query_incomplete
+                and self._field_revisions.get("segment_colors", 0) > baseline
+            )
+
     async def async_set_segment_kelvin(self, packet: bytes, *, requested_kelvin: int) -> None:
         """Confirm settled rendering on the original subscription, without replaying the write."""
         profile = self.profile
