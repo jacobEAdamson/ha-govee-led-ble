@@ -5,7 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 from aiotools import VirtualClock
+from homeassistant.config_entries import current_entry
 from homeassistant.helpers.device_registry import DeviceInfo
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ha_govee_led_ble.const import (
     DOMAIN,
@@ -20,6 +22,7 @@ from custom_components.ha_govee_led_ble.coordinator import GoveeBLECoordinator
 from custom_components.ha_govee_led_ble.coordinator_status import ParsedMode
 from custom_components.ha_govee_led_ble.h6199_calibration import WHITE_BALANCE_RESET
 from custom_components.ha_govee_led_ble.scenes import MODEL_SCENES
+from tests.coordinator_test_support import _CONFIGURATION_URL
 
 
 @pytest.fixture
@@ -314,4 +317,27 @@ def mock_h6076_coordinator():
         effect=None,
         segment_colors=[(255, 255, 255)] * 7,
         segment_brightness=[100] * 7,
+    )
+
+
+@pytest.fixture
+def coord(hass):
+    entry = MockConfigEntry(domain=DOMAIN, unique_id="AA:BB:CC:DD:EE:FF")
+    entry.add_to_hass(hass)
+    with current_entry.set(entry):
+        return GoveeBLECoordinator(
+            hass,
+            "AA:BB:CC:DD:EE:FF",
+            "H617A",
+            configuration_url=_CONFIGURATION_URL,
+        )
+
+
+@pytest.fixture
+def h6199(hass):
+    return GoveeBLECoordinator(
+        hass,
+        "11:22:33:44:55:66",
+        "H6199",
+        configuration_url=_CONFIGURATION_URL,
     )

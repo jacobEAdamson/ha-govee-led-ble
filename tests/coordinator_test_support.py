@@ -2,6 +2,8 @@
 
 from custom_components.ha_govee_led_ble.transport import xor_checksum
 
+_CONFIGURATION_URL = "homeassistant://ha-govee-led-ble/editor/test-entry"
+
 
 def _packet(header: int, action: int, params: list[int]) -> bytes:
     payload = bytearray([header, action, *params][:19])
