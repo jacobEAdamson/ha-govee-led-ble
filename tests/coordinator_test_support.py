@@ -1,5 +1,7 @@
 """Shared frame construction for coordinator tests."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 from custom_components.ha_govee_led_ble.transport import xor_checksum
 
 _CONFIGURATION_URL = "homeassistant://ha-govee-led-ble/editor/test-entry"
@@ -10,3 +12,8 @@ def _packet(header: int, action: int, params: list[int]) -> bytes:
     payload.extend(b"\x00" * (19 - len(payload)))
     payload.append(xor_checksum(payload))
     return bytes(payload)
+
+
+def _c(**kw):
+    kw.setdefault("disconnect", AsyncMock())
+    return MagicMock(is_connected=True, **kw)
