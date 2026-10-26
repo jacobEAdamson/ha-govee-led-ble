@@ -1,87 +1,104 @@
 ---
 name: govee-align
 description: >-
-  Align a Govee BLE device model (<MODEL>) across physical hardware research, local protocol
-  reference, Kaitai Struct (.ksy) schemas, and ha-govee-led-ble profile/coordinator layers.
-  Use for /govee-align <MODEL>, model investigations, user-reported device issues, new model
-  candidates, and contributor compatibility PRs.
+  Investigate Govee BLE models and issue reports during planning or implementation.
+  Use hardware and protocol evidence to build concrete plans and guide fixes across Kaitai,
+  profiles and shared runtime code. Accept optional models, issue/PR references, diagnostics,
+  packets or conversational context. Also use for model audits and compatibility PR reviews.
 license: MIT
 ---
 
 # govee-align
 
-Take `<MODEL>` (an exact SKU such as `H6076`, `H6125`, `H7020`, `H7025`, `H60A1`, or `H66A0`, plus any reported BLE local name, `pact_type`/`pact_code`, hardware/firmware versions, diagnostics, or issue/PR context).  Reconcile physical hardware reality, public evidence, and local protocol reference against Kaitai schemas, `ModelProfile`, and shared runtime code.
+Start from the supplied context: `/govee-align H6076`, `/govee-align #476`, `/govee-align H6199 #293`, or a request to investigate supplied replies.
+Neither a model nor an issue argument is mandatory.  Resolve exact SKUs from attributable evidence; clarify missing or conflicting identity rather than guessing.
 
-## Boundaries and reference material
+## Boundaries
 
-- **Full support across revisions by default:** Always audit, plan, and enable all defensible in-scope features across all hardware and firmware revisions, while preserving confirmed working behaviour and safety guards.  Never call `ask_user` to ask whether to narrow scope to a single reported bug or whether to keep structurally evidenced capabilities disabled until hardware qualification.
-- **Select mode up front:** **Read-only mode** (investigations, issue diagnosis, PR reviews) never modifies tracked files or runs mutating tracked-file generators (`make build`, `make check`, `refresh_scene_catalogues.py`).  **Implementation mode** uses a dedicated git worktree and absolute paths when other work is active.
-- **Reference material (worktree-safe):** Resolve the parent directory of the main repository clone via Git and read the reference material instructions before inspecting protocol files:
-  ```sh
-  common_git_dir="$(git rev-parse --git-common-dir)"
-  ref_dir="$(cd "$common_git_dir/../.." && pwd)/.reference-material"
-  ```
-  Read `$ref_dir/README.md` first and follow its confidentiality rules, lookups, entry points, and **LSP activation** workflow.
-- **Efficiency rules:**
-  - **Decision-led, local-first research:** Start with local reference material, repository code and issue/PR evidence.
-    Reuse cited findings after checking relevant checkout, source-version and owner-context changes.
-    Stop deepening settled traces; record the specific missing evidence and next discriminating check for unresolved decisions.
-    Use targeted authoritative public/upstream sources for remaining questions, including transport failures, under the reference confidentiality rules.
-  - **Batch searches and file slices:** `grep` for target functions/constants first, then read all needed `view_range` slices across files in one parallel turn rather than paging one slice per turn.
-  - **No duplicate reads:** Do not call `lsp` `documentSymbol` and full-file `view` on the same small file in one turn; use `documentSymbol` on large files to locate `view_range` targets or to link files before `goToDefinition`/`findReferences`.
-  - **Fast JSON/ZIP reads:** Use `python3 -c` (not `uv run python -c`) for stdlib JSON/ZIP inspection so fresh worktrees do not trigger a full `.venv` sync.
-  - **No guessed `docs/` paths:** Per-model `docs/*-support.md` files do not exist; rely on `grep`/`glob`, `.ksy` `doc` headers, and `const.py`.
-- **Global non-goals (`CONTRIBUTING.md`):** Never expose runtime controls, queries, or active runtime roots for AI filters, Wi-Fi provisioning/cloud control, onboard timers/schedules, phone/host microphone streaming, continuous host-driven BLE streaming, OTA updates, animated previews, or cloud camera calibration.
+- Follow `CONTRIBUTING.md` for architecture, full candidate support, excluded features, evidence classes, validation and delivery.
+  Audit the full in-scope feature/revision surface, prioritising the reported failure.  Missing owner qualification alone does not withhold defensible candidates.
+- Include evidenced neighbouring fixes.  Ask whether major gaps belong in the current issue/PR or a follow-up, and before materially changing the implementation approach.
+  Keep deferred findings visible; delivery scope and audit coverage are separate.
+- Planning, investigation and PR review are read-only: write session artifacts, not tracked files; do not run mutating generators or `make check`.
+  Implementation uses a dedicated worktree when other work is active.  Invocation alone authorises neither implementation nor publication.
+- Before protocol research, locate the main clone via `git rev-parse --path-format=absolute --git-common-dir`.
+  Read `.reference-material/README.md` in that clone's parent and follow its confidentiality, lookup and LSP instructions.
+- Research local evidence first, then targeted authoritative sources for unresolved questions, including transport failures.
+  Batch searches and file slices; reuse settled findings after checking source version, checkout and owner context.
+  Use `python3` for stdlib JSON/ZIP inspection.  Discover paths rather than inventing per-model `docs/` files.
 
-## 1. Research hardware reality and lookup `<MODEL>`
+## 1. Investigate while planning, not later
 
-Maintain a concise, revisable inventory of the full in-scope feature and revision surface, including paths not currently exposed.
-Prioritise unresolved decisions and the reported failure's causal path without reducing coverage.
-Add newly discovered routes and retain unresolved or deferred findings; locating the failing stage does not establish its cause.
+Perform the available intake, causal trace and audit below **now**, then construct the plan from their findings.
+Do not substitute implementation todos such as "run govee-align", "inspect the packets" or "audit the model".
+Use the four-section `CONTRIBUTING.md` structure:
 
-1. **Reference and repository lookup:** Follow `$ref_dir/README.md` and inspect existing `.ksy`, `const.py`, `scene_catalogues/<MODEL>.json`, and GitHub issue/PR context for `<MODEL>`'s product/type ID, IC/segment geometry, dynamic type-ID remapping, hardware-version family parsers, BLE local-name prefixes, and encryption eligibility.
-2. **Physical device and public evidence:** Cross-check hardware geometry, dedicated white emitters, power limits, owner diagnostics, and independent third-party captures (excluding self-referential repository hits).
-3. **Hardware/revision matrix:** Map `(pact_type, pact_code, hardware, firmware, subordinate_20/21)` to each capability independently.  Separate baseline capabilities safe from Pact alone (so setup and writes work if version queries time out) from capabilities requiring confirmed HW/FW versions.  Treat reference code as candidate routing, not hardware proof; flag where physical firmware diverges (unanswered queries, masked-write side effects, out-of-range stored registers).
+1. **Request and known context:** Reproduction, expected/actual behaviour, identities, versions and transport environment.
+2. **Research findings:** Causal evidence, packet/semantic differences, contrary evidence, audit coverage and unresolved explanations.
+3. **Candidate support scope:** Proposed correction, neighbouring fixes, preserved behaviour and major-gap scope decisions.
+4. **Model-specific changes and owner checks:** Affected files/shared entry points, each intended change and its evidence, distinct regressions and owner acceptance checks.
 
-## 2. Trace feature surfaces end to end
+Defer only checks requiring unavailable evidence, implementation or hardware access; state the dependency and next discriminating check.
+Keep planned checks distinct from performed checks.  If no correction is justified, report competing explanations instead of inventing one.
+During implementation, read the plan and evidence ledger before editing; revisit changed assumptions and unexamined paths, not settled discovery.
+First engagement during implementation still performs the investigation.  Reconcile changed decisions with the plan before modifying the affected path.
 
-For each in-scope feature, trace revision admission, bounds/defaults, producer/body, framing/transport, activation, acknowledgements, observations and recovery.
-Catalogue type, body family and wire subtype are independent routing decisions.
-Establish upload-ACK behaviour separately from status readback; status-query silence does not imply either ACK policy.
-The headings and identifiers below are non-exhaustive lookup anchors, not the limits of the investigation.  Keep exact wire rules in Kaitai and attributable session evidence.
+## 2. Establish the report's causal path
 
-- **Power & brightness:** Input versus register bounds (`brightness_wire_range`), conversion, clamping and non-zero readback handling.
-- **Static RGB & Kelvin:** Selector, Kelvin bounds, direct and companion RGB (`kelvin_direct_rgb`, `table_kelvin_rgb`), and whole-device versus per-segment behaviour.
-- **Geometry & segments:** Physical, installed and logical counts; `segment_count`, mask width, grouping and readback ambiguity.
-  Confirm configurable geometry through fresh readback before constructing masked writes.
-- **Scenes:** Exact-SKU catalogue, selector width/eligibility (`scene_codes`, `selector_only_scene_bits`, `local_scenes`), body routing, upload versus selector-only activation,
-  and exact-model speed metadata/defaults.
-- **Music:** Exact selectors/mode IDs, sensitivity and style/direction/group/key bounds, fixed colour, companion bodies, upload ordering, ACKs, retries and parameter activation.
-- **DIY & Workshop:** Body/transport, family/variation allowlists, rate/palette/layer bounds, upload ACKs, slot safety (`diy_slot_policy`) and restoration (`effect_readback`).
-- **Settings, video & DreamView:** Exact control eligibility, boolean versus enum values, query/write semantics, subordinate-version gates and group capacity
-  (`dreamview_max_sub_devices`).
+Read the issue/PR body, relevant comments, corrections, linked changes and available diagnostics.
+Treat proposed causes and workarounds as hypotheses.  Keep owners, revisions, environments and reported versus checkout versions separate.
+Record the action, expected/actual result, working controls and latest outcome with source links.
+Without a specific report, begin the model audit rather than requiring an issue or inventing a failure.
 
-## 3. Audit Kaitai ownership and neighbouring code
+Trace connection/subscription -> identity admission -> request construction -> framing/transformation -> physical write -> replies -> parsing -> state -> verification.
+Identify the last successful stage and first evidenced divergence; a service error does not prove a malformed command.
+Compare observed TX/RX with current generated output and decoded semantics at the same protocol layer:
 
-Kaitai Struct (`.ksy`) is the single source of wire truth.  Audit `<MODEL>` and neighbouring code across `tools/ble/kaitai/`, `const.py`, `generated_protocol_adapter.py`, `music_*.py`, `scenes.py`, `effect_*.py`, `coordinator*.py`, and `light*.py`:
+- Retain source/version, direction, revision, sequence and timing.  Distinguish captured, reconstructed and builder-generated frames.
+- Separate wrong bytes/routing from transport failure, unanswered queries, transitional readback and incorrect confirmation expectations.
+  Accepted writes, visible rendering, fresh observations and optimistic state are not interchangeable.
+- Locate the responsible KSY/profile/adapter/shared runtime path and a regression exposing its defect; check neighbouring callers and revision outcomes.
+  Do not weaken confirmation, add retries or copy another SKU's fix without evidence.
 
-- **Wire structure in Kaitai only:** Command frames, status replies (`aa_domain`), upload ACKs, music/scene/companion mode enums, segment page sizes, and register bounds belong in `.ksy` (`speculative/<sku>_*.ksy` starts `doc` with `SPECULATIVE` and preserves unknown bytes without invented `valid` constraints).
-- **Minimal model-specific Python:** Flag and eliminate hardcoded byte offsets, command hex literals, Python mode/scene fallback tables, `if model == ...` branches in coordinator/entity/protocol modules, and static `get_profile(model)` calls that bypass effective `device_profile()`.
-- **Complete semantic loop:** Verify `named fields -> observations -> sibling preservation -> persisted recovery -> generated writes -> fresh verification` (`applied`, `preserved`, `decode-only`, or `unknown`), plus `MODEL_EFFECT_CATALOGUES` (`effect_catalogue.py`) and `RELEASE_CAPABILITY_CONTRACT` (`effect_contracts.py`).
+If generated outputs are unavailable in read-only mode, inspect schemas/builders and record the pending comparison rather than running mutating generators.
 
-## 4. Check, review with a second agent, and report
+## 3. Complete the model and revision audit
 
-1. **Run verification checks:**
-   - Read-only: do not run `make protocol verify-protocol`, `test_profile_wire_invariants.py`, or `generate_frontend_contract_fixtures --check` on an unmodified checkout; run targeted `pytest` only when testing a specific frame/decode hypothesis.
-   - Implementation: run `make protocol verify-protocol`, add every distinct `device_profile()` outcome to `_QUALIFIED_CONTEXTS` in `tests/test_profile_wire_invariants.py`, add direct-byte frames to `tests/test_kaitai_protocol.py`, regenerate fixtures if needed, and pass `make check`.
-2. **Review with another agent:** Run a `code-review` or `rubber-duck` subagent (`gpt-6-astra`) to challenge the hardware/revision findings, Kaitai boundaries, and neighbouring refactoring opportunities.  Pass exact file/line citations and instruct the reviewer not to re-invoke `govee-align` or repeat full reference discovery.
-3. **Respond and plan clearly:**
-   - **If aligned:** Return a short confirmation of coverage and only checks actually performed.  Unfinished coverage is not aligned.
-   - **If gaps or uncertainty remain:** Report confirmed gaps alongside unresolved conclusions and unexamined scope.
-     Distinguish unexamined, investigated-but-unresolved and not-hardware-qualified; absent owner qualification alone does not withhold defensible candidates.
-     Keep evidence, attributable frames, affected schema/profile/runtime paths and intended checks in `<session_folder>/files/align-<model>.md`.
-     Identify the next discriminating evidence for unresolved conclusions instead of prescribing unsupported fixes.
-   - **Consistent handoff:** Keep one current decision per capability/revision context, or mark it unresolved.
-     Reconcile changed decisions across the specification, any plan and intended tests before implementing the affected path.
-     Retain contrary evidence, reasons for supersession and deferred findings without leaving competing current instructions.
-   - **When planning an implementation:** Include the four-section `CONTRIBUTING.md` plan and the complete delivery handoff: independent code review, `make check`, draft PR/comment approval, opening a PR linked to the issue (`Fixes #<issue>`, exact SKU label), passing CI, and rebase-merging to `master`.
+Maintain a concise inventory across existing `.ksy`, `const.py`, exact-SKU scene/effect catalogues and shared adapter, coordinator and entity paths.
+Map `(pact_type, pact_code, hardware, firmware, subordinate_20/21)` to capabilities independently.
+Check product IDs/remapping, BLE names, encryption, physical/installed/logical geometry, white emitters and power limits against attributable hardware/public evidence.
+Separate Pact-safe baseline capabilities from those needing confirmed versions; reference routing is a candidate, not hardware proof.
+
+For each feature, trace admission, bounds/defaults, body, transport, activation, ACKs, observations and recovery.  Lookup anchors, not coverage limits:
+
+| Surface | Check |
+| --- | --- |
+| Power, brightness | Register bounds/rescaling (`brightness_wire_range`), clamping and non-zero readback. |
+| RGB, Kelvin, segments | Selectors, bounds, direct/companion RGB, mask width/grouping, whole versus partial writes; fresh configured geometry before masks. |
+| Scenes | Exact-SKU catalogue, selector width/eligibility, body routing, selector-only versus upload activation, speed metadata/defaults. |
+| Music | Selectors/mode IDs, parameter bounds, companion bodies, upload ordering, ACK/retry policy and activation. |
+| DIY, Workshop | Body/family allowlists, rate/palette/layer bounds, upload ACKs, slot safety and restoration. |
+| Settings, video, DreamView | Control eligibility, boolean/enum semantics, query/write behaviour, subordinate gates and group capacity. |
+
+Catalogue type, body family and wire subtype are independent.  Establish upload ACKs separately from status readback; query silence proves neither ACK policy nor cause.
+Keep wire structure/codebooks in Kaitai, speculative unknowns opaque, and product capabilities in exact-SKU profiles.
+Flag handwritten offsets/command literals/fallback codebooks, model branches and static profiles bypassing effective `device_profile()`.
+Check `MODEL_EFFECT_CATALOGUES` and `RELEASE_CAPABILITY_CONTRACT` where affected.
+Verify named fields -> observations -> sibling preservation -> persisted recovery -> generated writes -> fresh verification.
+Classify relevant fields as applied, preserved, decode-only or unknown.
+
+## 4. Verify and hand off
+
+- **Read-only:** Run targeted pytest only for a specific frame/decode hypothesis with compatible outputs already available.
+  Do not run generation/invariant/fixture sweeps on an unmodified checkout merely to claim an audit.
+- **Implementation:** For wire changes, run `make protocol verify-protocol` and add attributable direct-byte regressions to `tests/test_kaitai_protocol.py`.
+  Add new runtime-distinct `device_profile()` cases to `_QUALIFIED_CONTEXTS` in `tests/test_profile_wire_invariants.py`.
+  Use neighbouring runtime tests for timing/state/recovery fixes; verify the reproduction, siblings and relevant revisions.  Regenerate affected fixtures and pass `make check`.
+- **Review:** Use independent review when required by the task/delivery workflow, challenging causal evidence, revision assumptions, Kaitai ownership and regressions.
+  Pass citations and the ledger; do not ask the reviewer to re-invoke the skill or repeat discovery.
+- **Report:** Separate issue-specific conclusions from the full audit.  Distinguish unexamined, investigated-but-unresolved and not-hardware-qualified paths.
+  Claim alignment only when coverage is complete; report only checks actually performed.
+- **Ledger:** Keep evidence, attributable frames, paths, current decisions, contrary/superseded findings and deferred checks in `<session_folder>/files/align-<model>.md`.
+  Use an issue-based filename until identity is resolved.  Link it from the plan rather than maintaining competing decisions.
+- **Delivery:** Include independent review, `make check`, draft PR/comment approval, an exact-SKU-labelled PR, passing CI and rebase merge to `master`.
+  Link an issue when applicable; use `Fixes #<issue>` only when resolved.  These steps neither replace planning research nor authorise publication.
